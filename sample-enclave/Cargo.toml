@@ -1,0 +1,9 @@
+[package]
+name = "sample-enclave"
+version = "0.1.0"
+authors = ["Natnatee Dokmai <ndokmai@indiana.edu>"]
+edition = "2018"
+
+[dependencies]
+ra-common = { path = "../ra-common" }
+ra-enclave = { path = "../ra-enclave" }

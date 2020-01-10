@@ -1,0 +1,5 @@
+[workspace]
+members = ["crypto", "ra-common", "ra-client", "ra-enclave", "ra-sp", "sample-enclave", "sample-client", "sample-sp"]
+
+[patch.crates-io]
+ring = { git = "https://github.com/akash-fortanix/ring.git", branch="sgx-target" }

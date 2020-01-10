@@ -1,0 +1,13 @@
+{
+    "quote_type": 1,
+    "spid": "",
+    "primary_subscription_key": "",
+    "secondary_subscription_key": "",
+    "quote_trust": [
+        "GROUP_OUT_OF_DATE",
+        "CONFIGURATION_NEEDED"
+    ],
+    "sp_private_key_pem_path": "sample-sp/data/sp-keys/private_key.pem",
+    "ias_root_cert_pem_path": "sample-sp/data/Intel_SGX_Attestation_RootCA.pem",
+    "sigstruct_path": "target/x86_64-fortanix-unknown-sgx/debug/sample-enclave.sig"
+}

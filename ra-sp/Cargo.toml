@@ -1,0 +1,26 @@
+[package]
+name = "ra-sp"
+version = "0.1.0"
+authors = ["Natnatee Dokmai <ndokmai@indiana.edu>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bincode = "1.2.1"
+http = "0.2"
+hyper = "0.13"
+hyper-tls = "0.4"
+hex = "0.4"
+regex = "1.3.3"
+base64 = "0.11.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+webpki = "0.19.0" 
+percent-encoding = "2.1.0"
+byteorder = "1.3.2"
+sgxs = "0.7.2"
+sgx-isa = "0.3.1"
+crypto = { path = "../crypto" }
+ra-common = { path = "../ra-common" }
+

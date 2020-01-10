@@ -2,8 +2,10 @@
 Remote attestation framework for Fortanix EDP
 ## Disclaimer
 This project is highly experimental at the current stage, so please do not attemp to use it in production. I will keep updating the code and adding more instructions soon.
+## Dependencies
+- [Fortanix EDP](https://edp.fortanix.com/docs/installation/guide/)
 ## How to Build and Run
-1. Sign up for an account at https://api.portal.trustedservices.intel.com/EPID-attestation and make sure that the Name Base Mode is Linkable Quote (this is all the SDK can support for now). Take note of "SPID", "Primary key", and "Secondary key".
+1. Sign up for a Development Access account at https://api.portal.trustedservices.intel.com/EPID-attestation. Make sure that the Name Base Mode is Linkable Quote (this is all the SDK can support for now). Take note of "SPID", "Primary key", and "Secondary key".
 2. Modify the following fields in [settings.json](sample-sp/data/settings.json) using the information from the previous step:
   - "spid": "\<SPID\>"
   - "primary_subscription_key": "\<Primary Key\>"

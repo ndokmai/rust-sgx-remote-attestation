@@ -13,7 +13,7 @@ async fn main() -> AsyncResult<()> {
     let mut client_stream = tcp_accept(client_port)
         .expect("SP: Client connection failed");
     eprintln!("SP: connected to client.");
-    let config = parse_config_file("sample-sp/data/settings.json");
+    let config = parse_config_file("data/settings.json");
     let context = SpRaContext::init(&config).unwrap();
     let (_secret_key, _mac_key) = context.do_attestation(&mut client_stream).await?;
     eprintln!("SP: done!");

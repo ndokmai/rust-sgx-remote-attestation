@@ -3,8 +3,8 @@ use ra_common::tcp::tcp_connect;
 use ra_client::ClientRaContext;
 
 fn main() {
-    let enclave_port = 1234;
-    let sp_port = 1235;
+    let enclave_port = 7777;
+    let sp_port = 1234;
     let localhost = "localhost";
     let timeout = Duration::from_secs(5);
 

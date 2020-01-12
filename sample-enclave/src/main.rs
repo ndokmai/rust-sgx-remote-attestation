@@ -5,7 +5,7 @@ use ra_enclave::EnclaveRaContext;
 use crate::sp_vkey::SP_VKEY_PEM;
 
 fn main() {
-    let enclave_port = 1234;
+    let enclave_port = 7777;
     let mut client_stream = tcp_accept(enclave_port)
         .expect("Enclave: Client connection failed");
     eprintln!("Enclave: connected to client.");

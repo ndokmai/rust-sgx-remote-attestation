@@ -2,11 +2,11 @@ pub mod msg;
 pub mod tcp;
 
 use std::io::{Read, Write};
-use crypto::cmac::{Cmac, MacTag};
-
 pub trait Stream: Read + Write {}
 
-// Return (smk, sk, mk, vk)
+use sgx_crypto::cmac::{Cmac, MacTag};
+/// Derive SMK, SK, MK, and VK according to 
+/// https://software.intel.com/en-us/articles/code-sample-intel-software-guard-extensions-remote-attestation-end-to-end-example
 pub fn derive_secret_keys(kdk: &Cmac) -> (MacTag, MacTag, MacTag, MacTag) {
     let smk_data = [0x01, 'S' as u8, 'M' as u8, 'K' as u8, 0x00, 0x80, 0x00];
     let smk = kdk.sign(&smk_data);

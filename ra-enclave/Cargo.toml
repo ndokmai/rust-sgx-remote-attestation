@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 bincode = "1.2.1"
 sgx-isa = { version = "0.3.1", features = ["sgxstd"] }
-crypto = { path = "../crypto" }
+sgx-crypto = { path = "../sgx-crypto" }
 ra-common = { path = "../ra-common" }
 
 [patch.crates-io]

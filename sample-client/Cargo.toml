@@ -8,5 +8,5 @@ edition = "2018"
 
 [dependencies]
 bincode = "1.2.1"
-ra-client = { path = "../ra-client" }
+ra-client = { path = "../ra-client", features = ["verbose"] }
 ra-common = { path = "../ra-common" }

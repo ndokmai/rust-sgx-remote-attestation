@@ -82,11 +82,12 @@ pub struct PsSecPropDescInternal {
     pub inner: PsSecPropDesc,
 }
 
+// According to Intel's RA protocol, g_a is needed in MSG3. However, I think this is 
+// redundant as SHA256(g_a || g_b || vk) will be included in the report data section of
+// Quote anyway. A man-in-the-middle attack should fail if g_a is not signed by QE.
 #[derive(Serialize, Deserialize)]
 pub struct RaMsg3 {
     pub mac: MacTag,
-    #[serde(with = "BigArray")]
-    pub g_a: DHKEPublicKey,
     pub ps_sec_prop: Option<PsSecPropDescInternal>,
     #[serde(with = "BigArray")]
     pub quote: Quote,
@@ -94,13 +95,11 @@ pub struct RaMsg3 {
 
 impl RaMsg3 {
     pub fn new(smk: &Cmac,
-               g_a: DHKEPublicKey, 
                ps_sec_prop: Option<PsSecPropDesc>,
                quote: Quote) -> Self {
         let ps_sec_prop = ps_sec_prop.map(|v| PsSecPropDescInternal{ inner: v });
         let mut msg3 = Self {
             mac: [0u8; size_of::<MacTag>()],
-            g_a,
             ps_sec_prop,
             quote,
         };
@@ -116,7 +115,6 @@ impl RaMsg3 {
 
     fn get_m(&self) -> Vec<u8> {
         let mut m = Vec::new();
-        m.write_all(&self.g_a[..]).unwrap();
         if self.ps_sec_prop.is_some() {
             m.write_all(&self.ps_sec_prop.as_ref().unwrap().inner[..]).unwrap();
         }

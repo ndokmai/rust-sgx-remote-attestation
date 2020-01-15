@@ -2,7 +2,7 @@ use std::io::Write;
 use std::mem::size_of;
 use sgx_isa::{Targetinfo, Report};
 use sgx_crypto::random::RandomState;
-use sgx_crypto::key_exchange::{DHKE, DHKEPublicKey};
+use sgx_crypto::key_exchange::OneWayAuthenticatedDHKE;
 use sgx_crypto::signature::VerificationKey;
 use sgx_crypto::cmac::{Cmac, MacTag};
 use sgx_crypto::digest::sha256;
@@ -13,20 +13,23 @@ use crate::EnclaveRaResult;
 use crate::local_attestation;
 
 pub struct EnclaveRaContext {
+    pub key_exchange: Option<OneWayAuthenticatedDHKE>,
     pub sp_vkey: VerificationKey,
-    pub a: Option<DHKE>,
-    pub g_a: DHKEPublicKey, 
-    pub kdk: Option<MacTag>,
-    pub smk: Option<Cmac>,
-    pub vk: Option<MacTag>,
-    pub sk: Option<MacTag>,
-    pub mk: Option<MacTag>,
 }
 
 impl EnclaveRaContext {
+    pub fn init(sp_vkey_pem: &str) -> EnclaveRaResult<Self>  {
+        let rng = RandomState::new();
+        let key_exchange = OneWayAuthenticatedDHKE::generate_keypair(&rng)?;
+        Ok(Self {
+            sp_vkey: VerificationKey::new_from_pem(sp_vkey_pem)?,
+            key_exchange: Some(key_exchange),
+        })
+    }
+
     pub fn do_attestation(mut self, mut client_stream: &mut impl Stream) 
-        -> Result<(MacTag, MacTag), EnclaveRaError> {
-            self.process_msg_2(client_stream).unwrap();
+        -> EnclaveRaResult<(MacTag, MacTag)> {
+            let (sk, mk) = self.process_msg_2(client_stream).unwrap();
             let msg4: RaMsg4 = bincode::deserialize_from(&mut client_stream).unwrap();
             if !msg4.is_enclave_trusted {
                 return Err(EnclaveRaError::EnclaveNotTrusted);
@@ -37,60 +40,65 @@ impl EnclaveRaContext {
                 },
                 None => {},
             }
-            Ok((self.sk.take().unwrap(), self.mk.take().unwrap()))
+            Ok((sk, mk))
         }
 
-    pub fn init(sp_vkey_pem: &str) -> EnclaveRaResult<Self>  {
-        let rng = RandomState::new();
-        let a = DHKE::generate_keypair(&rng)?;
-        let g_a = *a.get_public_key();
-        Ok(Self {
-            sp_vkey: VerificationKey::new_from_pem(sp_vkey_pem)?,
-            a: Some(a),
-            g_a,
-            kdk: None,
-            smk: None,
-            vk: None,
-            sk: None,
-            mk: None,
-        })
-    }
-
+    // Return (signing key, master key)
     pub fn process_msg_2(&mut self, 
-                         mut client_stream: &mut impl Stream) -> EnclaveRaResult<()> {
-        client_stream.write_all(self.g_a.as_ref()).unwrap();
+                         mut client_stream: &mut impl Stream) 
+        -> EnclaveRaResult<(MacTag, MacTag)> {
+            let g_a = self.key_exchange.as_ref().unwrap().get_public_key().to_owned();
+            client_stream.write_all(&g_a[..]).unwrap();
 
-        let msg2: RaMsg2 = bincode::deserialize_from(&mut client_stream).unwrap();
+            let msg2: RaMsg2 = bincode::deserialize_from(&mut client_stream).unwrap();
 
-        // Derive KDK and other secret keys 
-        let kdk = self.a.take().unwrap().derive_key(&msg2.g_b).unwrap();
-        let kdk_cmac = Cmac::new(&kdk);
-        let (smk, sk, mk, vk) = derive_secret_keys(&kdk_cmac);
-        let smk = Cmac::new(&smk);
+            // Verify and derive KDK and then other secret keys 
+            let kdk = self.key_exchange.take().unwrap()
+                .verify_and_derive(&msg2.g_b,
+                                   &msg2.sign_gb_ga,
+                                   &self.sp_vkey)
+                .unwrap();
+            let kdk_cmac = Cmac::new(&kdk);
+            let (smk, sk, mk, vk) = derive_secret_keys(&kdk_cmac);
+            let smk = Cmac::new(&smk);
 
-        // Verify (g_b, g_a) with SP's verification key 
-        let mut gb_ga = Vec::new();
-        gb_ga.write_all(&msg2.g_b).unwrap();
-        gb_ga.write_all(&self.g_a).unwrap();
-        self.sp_vkey.verify(&gb_ga[..], &msg2.sign_gb_ga[..])?;
+            // Verify MAC tag of MSG2
+            msg2.verify_mac(&smk).map_err(|_| EnclaveRaError::IntegrityError)?;
 
-        // Verify MAC tag of MSG2
-        msg2.verify_mac(&smk).map_err(|_| EnclaveRaError::IntegrityError)?;
+            // Obtain SHA-256(g_a || g_b || vk) 
+            let mut verification_msg = Vec::new();
+            verification_msg.write_all(g_a.as_ref()).unwrap();
+            verification_msg.write_all(&msg2.g_b).unwrap();
+            verification_msg.write_all(&vk).unwrap();
+            let verification_digest = sha256(&verification_msg[..]);
 
-        // Obtain SHA-256(g_a || g_b || vk) 
-        let mut verification_msg = Vec::new();
-        verification_msg.write_all(self.g_a.as_ref()).unwrap();
-        verification_msg.write_all(&msg2.g_b).unwrap();
-        verification_msg.write_all(&vk).unwrap();
-        let verification_digest = sha256(&verification_msg[..]);
+            // Obtain Quote
+            let quote = Self::get_quote(&verification_digest[..], client_stream)?;
 
-        // Build a report and send it to client
-        let mut report_data = [0u8; 64];
-        (&mut report_data[..32]).copy_from_slice(&verification_digest[..]);
+            // Send MAC for msg3 to client
+            let msg3 = RaMsg3::new(&smk, 
+                                   None, 
+                                   quote);
+            client_stream.write_all(&msg3.mac).unwrap();
+
+            Ok((sk, mk))
+        }
+
+    /// Get quote from Quote Enclave. The length of report_data must be <= 64 bytes.
+    pub fn get_quote(report_data: &[u8],
+                     client_stream: &mut impl Stream) -> EnclaveRaResult<Quote> {
+        if report_data.len() > 64 {
+            return Err(EnclaveRaError::ReportDataLongerThan64Bytes);
+        }
+
+        // Obtain QE's target info to build a report for local attestation. 
+        // Then, send the report back to client.
+        let mut _report_data = [0u8; 64];
+        (&mut _report_data[..(report_data.len())]).copy_from_slice(report_data);
         let mut target_info = [0u8; Targetinfo::UNPADDED_SIZE];
         client_stream.read_exact(&mut target_info).unwrap();
         let target_info = Targetinfo::try_copy_from(&target_info).unwrap();
-        let report = Report::for_target(&target_info, &report_data);
+        let report = Report::for_target(&target_info, &_report_data);
         client_stream.write_all(report.as_ref()).unwrap();
 
         // Obtain quote and QE report from client 
@@ -103,20 +111,6 @@ impl EnclaveRaContext {
         // Verify that the report is generated by QE
         local_attestation::verify_local_attest(&qe_report[..])
             .map_err(|e| EnclaveRaError::LocalAttestation(e))?;
-
-        // Send MAC for msg3 to client
-        let msg3 = RaMsg3::new(&smk, 
-                               self.g_a, None, 
-                               quote);
-        client_stream.write_all(&msg3.mac).unwrap();
-
-        // Set context
-        self.kdk = Some(kdk);
-        self.smk = Some(smk);
-        self.vk = Some(vk);
-        self.sk = Some(sk);
-        self.mk = Some(mk);
-
-        Ok(())
+        Ok(quote)
     }
 }

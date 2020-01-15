@@ -14,7 +14,7 @@ use sgx_crypto::cmac::MacTag;
 
 pub struct AttestationResult {
     pub epid_pseudonym: Option<String>,
-    pub secret_key: MacTag,
-    pub mac_key: MacTag,
+    pub signing_key: MacTag,
+    pub master_key: MacTag,
 }
 

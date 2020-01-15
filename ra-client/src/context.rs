@@ -12,7 +12,6 @@ use crate::ClientRaResult;
 pub struct ClientRaContext {
     pub aesm_client: AesmClient,
     pub quote_info: QuoteInfo,
-    pub g_a: Option<DHKEPublicKey>, 
 }
 
 impl ClientRaContext {
@@ -22,7 +21,6 @@ impl ClientRaContext {
         Ok(Self {
             aesm_client, 
             quote_info,
-            g_a: None,
         })
     }
 
@@ -90,45 +88,60 @@ impl ClientRaContext {
                      enclave_stream: &mut impl Stream) -> RaMsg1 {
         let mut g_a: DHKEPublicKey = [0u8; size_of::<DHKEPublicKey>()];
         enclave_stream.read_exact(&mut g_a[..]).unwrap();
-        self.g_a = Some(g_a);
         let gid: Gid = self.quote_info.gid().try_into().unwrap();
-        RaMsg1 { gid, g_a: *self.g_a.as_ref().unwrap() }
+        RaMsg1 { gid, g_a }
     }
 
     pub fn process_msg_2(&self, msg2: RaMsg2, 
                          mut enclave_stream: &mut impl Stream) -> ClientRaResult<RaMsg3> {
         bincode::serialize_into(&mut enclave_stream, &msg2).unwrap();
 
-        // Get report for local attestation with QE from enclave
-        enclave_stream.write_all(self.quote_info.target_info()).unwrap();
-        let mut report = vec![0u8; Report::UNPADDED_SIZE];
-        enclave_stream.read_exact(&mut report[..]).unwrap();
-
-        // Get a quote and QE report from QE and send them to enclave
         let sig_rl = match msg2.sig_rl {
             Some(sig_rl) => sig_rl.to_owned(),
             None => Vec::with_capacity(0),
         };
-        let _quote = self.aesm_client.get_quote(
-            &self.quote_info,
-            report,
-            (&msg2.spid[..]).to_owned(),
-            sig_rl)?;
-        enclave_stream.write_all(_quote.quote()).unwrap();
-        enclave_stream.write_all(_quote.qe_report()).unwrap();
+        let spid = (&msg2.spid[..]).to_owned();
+
+        // Get a Quote and send it to enclave to sign
+        let quote = Self::get_quote(&self.aesm_client,
+                                    spid,
+                                    sig_rl,
+                                    enclave_stream)?;
 
         // Read MAC for msg3 from enclave
         let mut mac = [0u8; size_of::<MacTag>()];
         enclave_stream.read_exact(&mut mac).unwrap();
 
-        let mut quote = [0u8; size_of::<Quote>()];
-        quote.copy_from_slice(_quote.quote());
-
         Ok(RaMsg3{
             mac,
-            g_a: *self.g_a.as_ref().unwrap(),
             ps_sec_prop: None, 
             quote
         })
+    }
+
+    /// Get a Quote and send it to enclave to sign
+    pub fn get_quote(aesm_client: &AesmClient, 
+                     spid: Vec<u8>,
+                     sig_rl: Vec<u8>,
+                     enclave_stream: &mut impl Stream) -> ClientRaResult<Quote> {
+        let quote_info = aesm_client.init_quote()?;
+
+        // Get report for local attestation with QE from enclave
+        enclave_stream.write_all(quote_info.target_info()).unwrap();
+        let mut report = vec![0u8; Report::UNPADDED_SIZE];
+        enclave_stream.read_exact(&mut report[..]).unwrap();
+
+        // Get a quote and QE report from QE and send them to enclave
+        let _quote = aesm_client.get_quote(
+            &quote_info,
+            report,
+            spid,
+            sig_rl)?;
+        enclave_stream.write_all(_quote.quote()).unwrap();
+        enclave_stream.write_all(_quote.qe_report()).unwrap();
+
+        let mut quote = [0u8; size_of::<Quote>()];
+        quote.copy_from_slice(_quote.quote());
+        Ok(quote)
     }
 }

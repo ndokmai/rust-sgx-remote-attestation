@@ -3,6 +3,7 @@ pub enum EnclaveRaError {
     KeyExchange(sgx_crypto::key_exchange::KeError),
     Signature(sgx_crypto::signature::SigError),
     IntegrityError,
+    ReportDataLongerThan64Bytes,
     LocalAttestation(LocalAttestationError),
     EnclaveNotTrusted,
     PseNotTrusted,

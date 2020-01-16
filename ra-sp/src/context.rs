@@ -2,16 +2,15 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 use std::convert::TryInto;
-use byteorder::{ReadBytesExt, LittleEndian};
+use byteorder::{WriteBytesExt, ReadBytesExt, LittleEndian};
 use sgxs::sigstruct;
 use sgx_crypto::random::RandomState;
-use sgx_crypto::key_exchange::OneWayAuthenticatedDHKE;
-use sgx_crypto::cmac::{Cmac, MacTag};
+use sgx_crypto::key_exchange::{OneWayAuthenticatedDHKE, KDK};
 use sgx_crypto::signature::SigningKey;
 use sgx_crypto::certificate::X509Cert;
 use sgx_crypto::digest::{sha256, Sha256Digest};
 use ra_common::msg::{Spid, RaMsg0, RaMsg1, RaMsg2, RaMsg3, RaMsg4};
-use ra_common::{derive_secret_keys, Stream};
+use ra_common::Stream;
 use crate::ias::{IasClient};
 use crate::config::SpConfig;
 use crate::error::SpRaError;
@@ -24,9 +23,8 @@ pub struct SpRaContext {
     sp_private_key: SigningKey, 
     rng: RandomState,
     key_exchange: Option<OneWayAuthenticatedDHKE>,
-    verification_digest: Option<Sha256Digest>,
-    smk: Option<Cmac>,
-    sk_mk: Option<(MacTag, MacTag)>,
+    ga_gb: Vec<u8>, // g_a || g_b 
+    kdk: Option<KDK>,
 }
 
 impl SpRaContext {
@@ -63,9 +61,8 @@ impl SpRaContext {
             sp_private_key,
             rng,
             key_exchange: Some(key_exchange),
-            verification_digest: None, 
-            smk: None,
-            sk_mk: None,
+            ga_gb: Vec::new(), 
+            kdk: None,
         })
     }
 
@@ -119,12 +116,11 @@ impl SpRaContext {
                 None => {},
             }
 
-            let (signing_key, master_key) = self.sk_mk.take().unwrap();
+            let kdk = self.kdk.take().unwrap();
 
             Ok(AttestationResult {
                 epid_pseudonym,
-                signing_key,
-                master_key,
+                kdk,
             })
         }
 
@@ -136,51 +132,46 @@ impl SpRaContext {
         let key_exchange = self.key_exchange.take().unwrap();
         let g_b = key_exchange.get_public_key().to_owned();
 
-        // Sign and derive KDK and other secret keys 
-        let (kdk, sign_gb_ga) = key_exchange.sign_and_derive(&msg1.g_a,
-                                                             &self.sp_private_key,
-                                                             &self.rng)
-            .unwrap();
-        let kdk_cmac = Cmac::new(&kdk);
-        let (smk, sk, mk, vk) = derive_secret_keys(&kdk_cmac);
-        let smk = Cmac::new(&smk);
-
-        // Obtain SHA-256(g_a || g_b || vk) 
-        let mut verification_msg = Vec::new();
-        verification_msg.write_all(&msg1.g_a).unwrap();
-        verification_msg.write_all(&g_b[..]).unwrap();
-        verification_msg.write_all(&vk).unwrap();
-        let verification_digest = sha256(&verification_msg[..]);
-
-        // Set context
-        self.smk = Some(smk);
-        self.sk_mk = Some((sk, mk));
-        self.verification_digest = Some(verification_digest);
-
+        // Sign and derive KDK
         let spid: Spid = hex::decode(&self.config.spid).unwrap().as_slice()
             .try_into().unwrap();
         let quote_type = self.config.linkable as u16;
+        let mut aad = Vec::new();
+        aad.write_all(&spid[..]).unwrap();
+        aad.write_u16::<LittleEndian>(quote_type).unwrap();
+        let (kdk, signature) = key_exchange.sign_and_derive(&msg1.g_a,
+                                                             &self.sp_private_key,
+                                                             Some(&aad[..]),
+                                                             &self.rng)
+            .unwrap();
 
-        Ok(RaMsg2::new(
-            self.smk.as_ref().unwrap(),
+        // Set context
+        self.ga_gb.write_all(&msg1.g_a).unwrap();
+        self.ga_gb.write_all(&g_b[..]).unwrap();
+        self.kdk = Some(kdk);
+
+        Ok(RaMsg2 {
             g_b,
             spid,
             quote_type, 
-            sign_gb_ga,
-            sig_rl.await?,
-        ))
+            signature,
+            sig_rl: sig_rl.await?,
+        })
     }
 
     pub async fn process_msg_3(&mut self, msg3: RaMsg3) 
         -> SpRaResult<(RaMsg4, Option<String>)> {
             // Integrity check
-            if !msg3.verify_mac(self.smk.as_ref().unwrap()).is_ok() {
-                return Err(SpRaError::IntegrityError);
-            }
-
             let quote_digest: Sha256Digest = (&msg3.quote.as_ref()[368..400])
                 .try_into().unwrap();
-            if self.verification_digest.as_ref().unwrap() != &quote_digest {
+
+            // Obtain SHA-256(g_a || g_b || ps_sec_prop) 
+            if msg3.ps_sec_prop.is_some() {
+                self.ga_gb
+                    .write_all(&msg3.ps_sec_prop.as_ref().unwrap().inner[..]).unwrap();
+            }
+            let verification_digest = sha256(&self.ga_gb[..]);
+            if verification_digest != quote_digest {
                 return Err(SpRaError::IntegrityError);
             }
 

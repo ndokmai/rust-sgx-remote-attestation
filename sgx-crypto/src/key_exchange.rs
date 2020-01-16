@@ -71,37 +71,45 @@ impl OneWayAuthenticatedDHKE {
         &self.dhke.public_key
     }
 
-    /// Bob signs the (g_b, g_a).
+    /// Bob signs (g_b || g_a || aad).
     pub fn sign_and_derive(self, 
                            g_a: &DHKEPublicKey,
                            signing_key: &SigningKey, 
+                           aad: Option<&[u8]>, // additionally authenticated data
                            rng: &RandomState) 
         -> Result<(KDK, Signature), KeError> {
 
-            // Sign (g_b, g_a) with Bob's signing key 
-            let mut gb_ga = Vec::new();
-            gb_ga.write_all(&self.dhke.public_key).unwrap();
-            gb_ga.write_all(g_a).unwrap();
-            let sign_gb_ga = signing_key.sign(&gb_ga[..], rng)
+            // Sign (g_b || g_a || aad) with Bob's signing key 
+            let mut msg = Vec::new();
+            msg.write_all(&self.dhke.public_key).unwrap();
+            msg.write_all(g_a).unwrap();
+            if aad.is_some() {
+                msg.write_all(aad.as_ref().unwrap()).unwrap();
+            }
+            let signature = signing_key.sign(&msg[..], rng)
                 .map_err(|e| KeError::SigError(e))?;
 
             // Derive KDK
             let kdk = self.dhke.derive_key(g_a)?;
-            Ok((kdk, sign_gb_ga))
+            Ok((kdk, signature))
         } 
 
-    /// Alice verifies the (g_b, g_a).
+    /// Alice verifies (g_b || g_a || aad).
     pub fn verify_and_derive(self,
                              g_b: &DHKEPublicKey,
-                             sign_gb_ga: &Signature,
+                             signature: &Signature, // Sig(g_b || g_a || aad)
+                             aad: Option<&[u8]>, // additionally authenticated data
                              verification_key: &VerificationKey) 
         -> Result<KDK, KeError> {
 
-            // Verify (g_b, g_a) with Bob's verification key 
-            let mut gb_ga = Vec::new();
-            gb_ga.write_all(g_b).unwrap();
-            gb_ga.write_all(&self.dhke.public_key).unwrap();
-            verification_key.verify(&gb_ga[..], &sign_gb_ga[..])
+            // Verify (g_b || g_a || aad) with Bob's verification key 
+            let mut msg = Vec::new();
+            msg.write_all(g_b).unwrap();
+            msg.write_all(&self.dhke.public_key).unwrap();
+            if aad.is_some() {
+                msg.write_all(aad.as_ref().unwrap()).unwrap();
+            }
+            verification_key.verify(&msg[..], &signature[..])
                 .map_err(|e| KeError::SigError(e))?;
 
             // Derive KDK

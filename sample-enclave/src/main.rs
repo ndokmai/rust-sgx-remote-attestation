@@ -10,7 +10,6 @@ fn main() {
         .expect("Enclave: Client connection failed");
     eprintln!("Enclave: connected to client.");
     let context = EnclaveRaContext::init(SP_VKEY_PEM).unwrap();
-    let (_signing_key, _master_key) = 
-        context.do_attestation(&mut client_stream).unwrap();
+    let _kdk = context.do_attestation(&mut client_stream).unwrap();
     eprintln!("Enclave: done!");
 }

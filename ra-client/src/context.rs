@@ -2,7 +2,6 @@ use std::convert::TryInto;
 use std::mem::size_of;
 use aesm_client::{AesmClient, QuoteInfo};
 use sgx_isa::Report;
-use sgx_crypto::cmac::MacTag;
 use sgx_crypto::key_exchange::DHKEPublicKey;
 use ra_common::msg::{Gid, Quote, RaMsg0, RaMsg1, RaMsg2, RaMsg3, RaMsg4};
 use ra_common::Stream;
@@ -107,13 +106,7 @@ impl ClientRaContext {
                                     spid,
                                     sig_rl,
                                     enclave_stream)?;
-
-        // Read MAC for msg3 from enclave
-        let mut mac = [0u8; size_of::<MacTag>()];
-        enclave_stream.read_exact(&mut mac).unwrap();
-
         Ok(RaMsg3{
-            mac,
             ps_sec_prop: None, 
             quote
         })

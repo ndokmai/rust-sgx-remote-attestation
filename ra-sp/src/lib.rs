@@ -10,11 +10,10 @@ pub use crate::config::*;
 
 pub type SpRaResult<T> = Result<T, crate::error::SpRaError>;
 
-use sgx_crypto::cmac::MacTag;
+use sgx_crypto::key_exchange::KDK;
 
 pub struct AttestationResult {
     pub epid_pseudonym: Option<String>,
-    pub signing_key: MacTag,
-    pub master_key: MacTag,
+    pub kdk: KDK,
 }
 

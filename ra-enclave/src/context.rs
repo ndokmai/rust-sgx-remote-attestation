@@ -1,13 +1,13 @@
 use std::io::Write;
 use std::mem::size_of;
+use byteorder::{WriteBytesExt, LittleEndian};
 use sgx_isa::{Targetinfo, Report};
 use sgx_crypto::random::RandomState;
-use sgx_crypto::key_exchange::OneWayAuthenticatedDHKE;
+use sgx_crypto::key_exchange::{OneWayAuthenticatedDHKE, KDK};
 use sgx_crypto::signature::VerificationKey;
-use sgx_crypto::cmac::{Cmac, MacTag};
 use sgx_crypto::digest::sha256;
-use ra_common::{Stream, derive_secret_keys};
-use ra_common::msg::{Quote, RaMsg2, RaMsg3, RaMsg4};
+use ra_common::Stream;
+use ra_common::msg::{Quote, RaMsg2, RaMsg4};
 use crate::error::EnclaveRaError;
 use crate::EnclaveRaResult;
 use crate::local_attestation;
@@ -28,8 +28,8 @@ impl EnclaveRaContext {
     }
 
     pub fn do_attestation(mut self, mut client_stream: &mut impl Stream) 
-        -> EnclaveRaResult<(MacTag, MacTag)> {
-            let (sk, mk) = self.process_msg_2(client_stream).unwrap();
+        -> EnclaveRaResult<KDK> {
+            let kdk = self.process_msg_2(client_stream).unwrap();
             let msg4: RaMsg4 = bincode::deserialize_from(&mut client_stream).unwrap();
             if !msg4.is_enclave_trusted {
                 return Err(EnclaveRaError::EnclaveNotTrusted);
@@ -40,48 +40,38 @@ impl EnclaveRaContext {
                 },
                 None => {},
             }
-            Ok((sk, mk))
+            Ok(kdk)
         }
 
     // Return (signing key, master key)
     pub fn process_msg_2(&mut self, 
                          mut client_stream: &mut impl Stream) 
-        -> EnclaveRaResult<(MacTag, MacTag)> {
+        -> EnclaveRaResult<KDK> {
             let g_a = self.key_exchange.as_ref().unwrap().get_public_key().to_owned();
             client_stream.write_all(&g_a[..]).unwrap();
 
             let msg2: RaMsg2 = bincode::deserialize_from(&mut client_stream).unwrap();
 
-            // Verify and derive KDK and then other secret keys 
+            // Verify and derive KDK
+            let mut aad = Vec::new();
+            aad.write_all(&msg2.spid[..]).unwrap();
+            aad.write_u16::<LittleEndian>(msg2.quote_type).unwrap();
             let kdk = self.key_exchange.take().unwrap()
                 .verify_and_derive(&msg2.g_b,
-                                   &msg2.sign_gb_ga,
+                                   &msg2.signature,
+                                   Some(&aad[..]),
                                    &self.sp_vkey)
                 .unwrap();
-            let kdk_cmac = Cmac::new(&kdk);
-            let (smk, sk, mk, vk) = derive_secret_keys(&kdk_cmac);
-            let smk = Cmac::new(&smk);
 
-            // Verify MAC tag of MSG2
-            msg2.verify_mac(&smk).map_err(|_| EnclaveRaError::IntegrityError)?;
-
-            // Obtain SHA-256(g_a || g_b || vk) 
+            // Obtain SHA-256(g_a || g_b || ps_sec_prop) 
             let mut verification_msg = Vec::new();
             verification_msg.write_all(g_a.as_ref()).unwrap();
             verification_msg.write_all(&msg2.g_b).unwrap();
-            verification_msg.write_all(&vk).unwrap();
             let verification_digest = sha256(&verification_msg[..]);
 
-            // Obtain Quote
-            let quote = Self::get_quote(&verification_digest[..], client_stream)?;
-
-            // Send MAC for msg3 to client
-            let msg3 = RaMsg3::new(&smk, 
-                                   None, 
-                                   quote);
-            client_stream.write_all(&msg3.mac).unwrap();
-
-            Ok((sk, mk))
+            // Obtain and verify quote 
+            let _ = Self::get_quote(&verification_digest[..], client_stream)?;
+            Ok(kdk)
         }
 
     /// Get quote from Quote Enclave. The length of report_data must be <= 64 bytes.

@@ -10,7 +10,7 @@ pub struct EncryptedWriter {
     buf: Vec<u8>,
     key: SealingKey,
     rand: SystemRandom,
-    //seq: u64,
+    seq: u64,
     tag_len: usize,
     capacity: usize,
     // If the inner writer panics in a call to write, we don't want to
@@ -27,7 +27,7 @@ impl EncryptedWriter {
             buf: Vec::with_capacity(capacity + AES_128_GCM.tag_len()),
             key: SealingKey::new(&AES_128_GCM, &key_bytes[..]).unwrap(),
             rand: SystemRandom::new(),
-            //seq: 0,
+            seq: 0,
             tag_len: AES_128_GCM.tag_len(),
             capacity,
             panicked: false,
@@ -38,7 +38,6 @@ impl EncryptedWriter {
         if self.buf.is_empty() {
             return Ok(());
         }
-        //println!("Launcher body(unencrypted): {:?}", self.buf);
         self.buf.resize(self.buf.len()+self.tag_len, 0);
         let mut nonce = [0u8; 12];
         let len = encrypt(&self.key, &self.rand, &mut nonce,
@@ -49,10 +48,8 @@ impl EncryptedWriter {
         self.panicked = false;
         match r {
             Ok(_) => {}
-            Err(e) => { return Err(e); }
+            Err(e) => return Err(e),
         }
-
-        //println!("Launcher packet len: {}", len);
 
         let mut written = 0;
         while written < nonce.len() {
@@ -70,8 +67,6 @@ impl EncryptedWriter {
             }
         }
 
-        //println!("Launcher nonce: {:?}", nonce);
-
         let mut written = 0;
         while written < len {
             self.panicked = true;
@@ -87,7 +82,6 @@ impl EncryptedWriter {
                 Err(e) => { return Err(e); }
             }
         }
-        //println!("Launcher body: {:?}", self.buf);
         self.buf.clear();
         Ok(())
     }
@@ -101,6 +95,10 @@ impl Write for EncryptedWriter {
         let mut written = 0;
         let len = buf.len();
         while written < len {
+            if self.buf.len() == 0 {
+                self.buf.write_u64::<NetworkEndian>(self.seq)?;
+                self.seq += 1;
+            }
             let to_write = usize::min(self.capacity - self.buf.len(), 
                                       buf.len() - written);
             written += self.buf.write(&buf[written..(written+to_write)])?;
@@ -119,7 +117,6 @@ impl Write for EncryptedWriter {
 impl Drop for EncryptedWriter {
     fn drop(&mut self) {
         if !self.panicked {
-            // dtors should not panic, so we ignore a failed flush
             let _r = self.flush_buf();
         }
     }
@@ -129,8 +126,9 @@ fn encrypt(key: &SealingKey, rand: &SystemRandom, nonce: &mut [u8; 12],
                in_out: &mut [u8]) -> Result<usize> {
     rand.fill(nonce).unwrap();
     let nonce = Nonce::assume_unique_for_key(*nonce);
-    let len = seal_in_place(key, nonce, Aad::empty(), in_out, 
-                            key.algorithm().tag_len()).unwrap();
-    Ok(len)
+    seal_in_place(key, nonce, Aad::empty(), in_out, 
+                            key.algorithm().tag_len())
+        .map_err(|_| Error::new(ErrorKind::InvalidData,
+                                    "Secure channel encryption error"))
 }
 

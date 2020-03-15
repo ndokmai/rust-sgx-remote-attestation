@@ -5,6 +5,7 @@ authors = ["Natnatee Dokmai <ndokmai@indiana.edu>"]
 edition = "2018"
 
 [dependencies]
+byteorder = "1.2.1"
 ra-common = { path = "../ra-common" }
 ra-enclave = { path = "../ra-enclave" }
 sgx-crypto = { path = "../sgx-crypto" }

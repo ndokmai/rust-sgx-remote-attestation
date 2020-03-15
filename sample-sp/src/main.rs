@@ -1,5 +1,6 @@
 use std::io::Read;
 use std::time::Duration;
+use byteorder::{ReadBytesExt, NetworkEndian};
 use ra_sp::{SpRaContext, SpConfig};
 use ra_common::tcp::{tcp_accept, tcp_connect};
 use sgx_crypto::secure_channel::SecureChannel;
@@ -26,9 +27,12 @@ fn main() {
 
     // establish secure channel with enclave
     let mut secure_channel = SecureChannel::new(enclave_stream, &result.master_key);
-    let mut msg = vec![0u8; 6];
+    let len = secure_channel.read_u32::<NetworkEndian>().unwrap() as usize;
+    let mut msg = vec![0u8; len];
     secure_channel.read_exact(&mut msg[..]).unwrap();
-    eprintln!("SP: message from Enclave = \"{}\"", std::str::from_utf8(&msg[..]).unwrap());
-
+    let msg = std::str::from_utf8(msg.as_slice()).unwrap();
+    let msg_ref = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque non placerat risus, et lobortis quam. Mauris velit lorem, elementum id neque a, aliquet tempus turpis. Nam eu congue urna, in semper quam. Ut tristique gravida nunc nec feugiat. Proin tincidunt massa a arcu volutpat, sagittis dignissim velit convallis. Cras ac finibus lorem, nec congue felis. Pellentesque fermentum vitae ipsum sed gravida. Nulla consectetur sit amet erat a pellentesque. Donec non velit sem. Sed eu metus felis. Nullam efficitur consequat ante, ut commodo nisi pharetra consequat. Ut accumsan eget ligula laoreet dictum. Maecenas tristique porta convallis. Suspendisse tempor sodales velit, ac luctus urna varius eu. Ut ultrices urna vestibulum vestibulum euismod. Vivamus eu sapien urna.";
+    assert_eq!(msg, msg_ref);
+    eprintln!("SP: message from Enclave = \"{}\"", msg);
     eprintln!("SP: done!");
 }

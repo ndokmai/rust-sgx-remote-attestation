@@ -7,11 +7,11 @@ use byteorder::{ReadBytesExt, NetworkEndian};
 pub struct EncryptedReader {
     inner: Rc<RefCell<dyn Read>>,
     buf: Vec<u8>,
+    seq: u64,
     cursor: usize, 
     key: OpeningKey,
     tag_len: usize,
 }
-
 
 impl EncryptedReader {
     pub fn with_capacity(capacity: usize, inner: Rc<RefCell<dyn Read>>, 
@@ -19,6 +19,7 @@ impl EncryptedReader {
         Self {
             inner,
             buf: Vec::with_capacity(capacity + AES_128_GCM.tag_len()),
+            seq: 0,
             cursor: 0,
             key: OpeningKey::new(&AES_128_GCM, key_bytes).unwrap(),
             tag_len: AES_128_GCM.tag_len(),
@@ -34,11 +35,9 @@ impl EncryptedReader {
                                       "Input too large"));
             }
             Ok(n) => n as usize, 
-            Err(e) => { return Err(e); }
+            Err(e) => return Err(e),
         };
         self.buf.resize(len, 0);
-
-        //println!("Enclave packet len: {}", len);
 
         let mut nonce = [0u8; 12];
         let mut read = 0;
@@ -54,8 +53,6 @@ impl EncryptedReader {
             }
         }
 
-        //println!("Enclave nonce: {:?}", nonce);
-
         let mut read = 0;
         while read < len {
             let r = self.inner.borrow_mut().read(&mut self.buf[read..]);
@@ -69,12 +66,8 @@ impl EncryptedReader {
             }
         }
 
-        //println!("Enclave body: {:?}", self.buf);
-
         decrypt(&self.key, &nonce, &mut self.buf[..])?;
         self.buf.resize(len-self.tag_len, 0);
-
-        //println!("Enclave decrypted: {:?}", self.buf);
 
         self.cursor = 0;
         Ok(())
@@ -91,21 +84,20 @@ impl Read for EncryptedReader {
         while read < buf.len() {
             if self.buf.is_empty() {
                 self.fill_buf()?;
+                let seq = self.buf.as_slice().read_u64::<NetworkEndian>()?;
+                if seq != self.seq {
+                    return Err(Error::new(ErrorKind::InvalidData,
+                                          "Secure channel integrity error"));
+                }
+                self.seq += 1;
+                self.cursor += std::mem::size_of::<u64>();
             };
-            let to_read = buf.len() - read;
-            if to_read <= self.buf.len() - self.cursor {
-                (&mut buf[read..])
-                    .clone_from_slice(
-                        &self.buf[self.cursor..(self.cursor+to_read)]);
-                self.cursor += to_read;
-                read += to_read;
-            } else {
-                (&mut buf[read..(read+self.buf.len()-self.cursor)])
-                    .clone_from_slice(
-                        &self.buf[self.cursor..]);
-                self.cursor = self.buf.len();
-                read += self.buf.len() - self.cursor;
-            }
+            let to_read = usize::min(self.buf.len()-self.cursor, buf.len()-read);
+            (&mut buf[read..(read+to_read)])
+                .clone_from_slice(
+                    &self.buf[self.cursor..(self.cursor+to_read)]);
+            self.cursor += to_read;
+            read += to_read;
             if self.cursor == self.buf.len() {
                 self.buf.clear();
                 self.cursor = 0;
@@ -119,7 +111,8 @@ pub fn decrypt<'a>(key: &OpeningKey, nonce: &[u8; 12],
                    ciphertext_and_tag_modified_in_place: &'a mut [u8]) -> 
 Result<&'a mut [u8]> {
     let nonce = Nonce::assume_unique_for_key(*nonce);
-    let out = open_in_place(key, nonce, Aad::empty(), 0, 
-                  ciphertext_and_tag_modified_in_place).unwrap();
-    Ok(out)
+    open_in_place(key, nonce, Aad::empty(), 0, 
+                  ciphertext_and_tag_modified_in_place)
+        .map_err(|_| Error::new(ErrorKind::InvalidData,
+                                    "Secure channel integrity error"))
 }

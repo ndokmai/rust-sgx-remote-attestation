@@ -1,9 +1,6 @@
 pub mod msg;
 pub mod tcp;
 
-use std::io::{Read, Write};
-pub trait Stream: Read + Write {}
-
 use sgx_crypto::cmac::{Cmac, MacTag};
 /// Derive SMK, SK, MK, and VK according to 
 /// https://software.intel.com/en-us/articles/code-sample-intel-software-guard-extensions-remote-attestation-end-to-end-example

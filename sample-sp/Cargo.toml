@@ -10,3 +10,4 @@ edition = "2018"
 serde_json = "1.0"
 ra-sp = { path = "../ra-sp", features = ["verbose"]}
 ra-common = { path = "../ra-common" }
+sgx-crypto = { path = "../sgx-crypto" }

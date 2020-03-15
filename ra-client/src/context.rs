@@ -4,8 +4,8 @@ use aesm_client::{AesmClient, QuoteInfo};
 use sgx_isa::Report;
 use sgx_crypto::cmac::MacTag;
 use sgx_crypto::key_exchange::DHKEPublicKey;
+use sgx_crypto::stream::Stream;
 use ra_common::msg::{Gid, Quote, RaMsg0, RaMsg1, RaMsg2, RaMsg3, RaMsg4};
-use ra_common::Stream;
 use crate::error::ClientRaError;
 use crate::ClientRaResult;
 

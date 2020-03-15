@@ -2,11 +2,8 @@ use std::io::{Result, Error, ErrorKind};
 use std::net::{TcpListener, TcpStream};
 use std::time::{Duration, Instant};
 use std::thread::sleep;
-use crate::Stream;
 
 const CONNECT_SLEEP_TIME_MILLIS: u64 = 10;
-
-impl Stream for TcpStream {}
 
 pub fn tcp_connect(host: &str, port: u16, timeout: Duration) -> Result<TcpStream> {
     let start = Instant::now();

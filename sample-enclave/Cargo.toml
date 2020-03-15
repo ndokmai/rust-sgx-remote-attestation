@@ -7,7 +7,8 @@ edition = "2018"
 [dependencies]
 ra-common = { path = "../ra-common" }
 ra-enclave = { path = "../ra-enclave" }
+sgx-crypto = { path = "../sgx-crypto" }
 
 # Enclave must be patched with this SGX version of Ring
 [patch.crates-io]
-ring = { git = "https://github.com/ndokmai/ring.git", rev = "20d46166db939bd10a2abf0c7eed980a8e7be57e" }
+ring = { git = "https://github.com/ndokmai/ring.git", branch = "sgx-target" }

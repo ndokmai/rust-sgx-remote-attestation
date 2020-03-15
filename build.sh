@@ -6,7 +6,7 @@ TARGET_SIG=$TARGET_DIR/$TARGET_NAME.sig
 KEY=$TARGET_NAME/data/vendor-keys/private_key.pem
 
 # Build and sign enclave
-(cd sample-enclave && cargo build --target x86_64-fortanix-unknown-sgx) && \
+(cd sample-enclave && RUSTFLAGS="-C target-feature=+aes,+pclmul" cargo build --target x86_64-fortanix-unknown-sgx) && \
 ftxsgx-elf2sgxs $TARGET --heap-size 0x2000000 --stack-size 0x20000 --threads 8 \
     --debug --output $TARGET_SGX && \
 sgxs-sign --key $KEY $TARGET_SGX $TARGET_SIG -d --xfrm 7/0 --isvprodid 0 --isvsvn 0

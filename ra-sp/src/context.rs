@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::Path;
 use std::convert::TryInto;
 use byteorder::{ReadBytesExt, LittleEndian};
@@ -10,7 +10,6 @@ use sgx_crypto::cmac::{Cmac, MacTag};
 use sgx_crypto::signature::SigningKey;
 use sgx_crypto::certificate::X509Cert;
 use sgx_crypto::digest::{sha256, Sha256Digest};
-use sgx_crypto::stream::Stream;
 use ra_common::msg::{Spid, RaMsg0, RaMsg1, RaMsg2, RaMsg3, RaMsg4};
 use ra_common::derive_secret_keys;
 use crate::ias::{IasClient};
@@ -72,7 +71,7 @@ impl SpRaContext {
 
     #[tokio::main]
     pub async fn do_attestation(mut self, 
-                                mut client_stream: &mut impl Stream) 
+                                mut client_stream: &mut (impl Read+Write)) 
         -> SpRaResult<AttestationResult> {
             // Not using MSG0 for now.
             let _msg0: RaMsg0 = bincode::deserialize_from(&mut client_stream)?;

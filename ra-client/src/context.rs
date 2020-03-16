@@ -1,10 +1,10 @@
+use std::io::{Read, Write};
 use std::convert::TryInto;
 use std::mem::size_of;
 use aesm_client::{AesmClient, QuoteInfo};
 use sgx_isa::Report;
 use sgx_crypto::cmac::MacTag;
 use sgx_crypto::key_exchange::DHKEPublicKey;
-use sgx_crypto::stream::Stream;
 use ra_common::msg::{Gid, Quote, RaMsg0, RaMsg1, RaMsg2, RaMsg3, RaMsg4};
 use crate::error::ClientRaError;
 use crate::ClientRaResult;
@@ -24,8 +24,8 @@ impl ClientRaContext {
         })
     }
 
-    pub fn do_attestation(mut self, mut enclave_stream: &mut impl Stream, 
-                          mut sp_stream: &mut impl Stream) -> ClientRaResult<()> {
+    pub fn do_attestation(mut self, mut enclave_stream: &mut (impl Read+Write), 
+                          mut sp_stream: &mut (impl Read+Write)) -> ClientRaResult<()> {
         let msg0 = self.get_extended_epid_group_id(); 
         if cfg!(feature = "verbose") {
             eprintln!("MSG0 generated");
@@ -85,7 +85,7 @@ impl ClientRaContext {
     }
 
     pub fn get_msg_1(&mut self, 
-                     enclave_stream: &mut impl Stream) -> RaMsg1 {
+                     enclave_stream: &mut (impl Read+Write)) -> RaMsg1 {
         let mut g_a: DHKEPublicKey = [0u8; size_of::<DHKEPublicKey>()];
         enclave_stream.read_exact(&mut g_a[..]).unwrap();
         let gid: Gid = self.quote_info.gid().try_into().unwrap();
@@ -93,37 +93,38 @@ impl ClientRaContext {
     }
 
     pub fn process_msg_2(&self, msg2: RaMsg2, 
-                         mut enclave_stream: &mut impl Stream) -> ClientRaResult<RaMsg3> {
-        bincode::serialize_into(&mut enclave_stream, &msg2).unwrap();
+                         mut enclave_stream: &mut (impl Read+Write)) 
+        -> ClientRaResult<RaMsg3> {
+            bincode::serialize_into(&mut enclave_stream, &msg2).unwrap();
 
-        let sig_rl = match msg2.sig_rl {
-            Some(sig_rl) => sig_rl.to_owned(),
-            None => Vec::with_capacity(0),
-        };
-        let spid = (&msg2.spid[..]).to_owned();
+            let sig_rl = match msg2.sig_rl {
+                Some(sig_rl) => sig_rl.to_owned(),
+                None => Vec::with_capacity(0),
+            };
+            let spid = (&msg2.spid[..]).to_owned();
 
-        // Get a Quote and send it to enclave to sign
-        let quote = Self::get_quote(&self.aesm_client,
-                                    spid,
-                                    sig_rl,
-                                    enclave_stream)?;
+            // Get a Quote and send it to enclave to sign
+            let quote = Self::get_quote(&self.aesm_client,
+                                        spid,
+                                        sig_rl,
+                                        enclave_stream)?;
 
-        // Read MAC for msg3 from enclave
-        let mut mac = [0u8; size_of::<MacTag>()];
-        enclave_stream.read_exact(&mut mac).unwrap();
+            // Read MAC for msg3 from enclave
+            let mut mac = [0u8; size_of::<MacTag>()];
+            enclave_stream.read_exact(&mut mac).unwrap();
 
-        Ok(RaMsg3{
-            mac,
-            ps_sec_prop: None, 
-            quote
-        })
-    }
+            Ok(RaMsg3{
+                mac,
+                ps_sec_prop: None, 
+                quote
+            })
+        }
 
     /// Get a Quote and send it to enclave to sign
     pub fn get_quote(aesm_client: &AesmClient, 
                      spid: Vec<u8>,
                      sig_rl: Vec<u8>,
-                     enclave_stream: &mut impl Stream) -> ClientRaResult<Quote> {
+                     enclave_stream: &mut (impl Read+Write)) -> ClientRaResult<Quote> {
         let quote_info = aesm_client.init_quote()?;
 
         // Get report for local attestation with QE from enclave

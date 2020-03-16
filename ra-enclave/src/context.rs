@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::io::{Read, Write};
 use std::mem::size_of;
 use sgx_isa::{Targetinfo, Report};
 use sgx_crypto::random::RandomState;
@@ -6,7 +6,6 @@ use sgx_crypto::key_exchange::OneWayAuthenticatedDHKE;
 use sgx_crypto::signature::VerificationKey;
 use sgx_crypto::cmac::{Cmac, MacTag};
 use sgx_crypto::digest::sha256;
-use sgx_crypto::stream::Stream;
 use ra_common::derive_secret_keys;
 use ra_common::msg::{Quote, RaMsg2, RaMsg3, RaMsg4};
 use crate::error::EnclaveRaError;
@@ -28,7 +27,7 @@ impl EnclaveRaContext {
         })
     }
 
-    pub fn do_attestation(mut self, mut client_stream: &mut impl Stream) 
+    pub fn do_attestation(mut self, mut client_stream: &mut (impl Read+Write))
         -> EnclaveRaResult<(MacTag, MacTag)> {
             let (sk, mk) = self.process_msg_2(client_stream).unwrap();
             let msg4: RaMsg4 = bincode::deserialize_from(&mut client_stream).unwrap();
@@ -46,7 +45,7 @@ impl EnclaveRaContext {
 
     // Return (signing key, master key)
     pub fn process_msg_2(&mut self, 
-                         mut client_stream: &mut impl Stream) 
+                         mut client_stream: &mut (impl Read+Write)) 
         -> EnclaveRaResult<(MacTag, MacTag)> {
             let g_a = self.key_exchange.as_ref().unwrap().get_public_key().to_owned();
             client_stream.write_all(&g_a[..]).unwrap();
@@ -87,7 +86,7 @@ impl EnclaveRaContext {
 
     /// Get quote from Quote Enclave. The length of report_data must be <= 64 bytes.
     pub fn get_quote(report_data: &[u8],
-                     client_stream: &mut impl Stream) -> EnclaveRaResult<Quote> {
+                     client_stream: &mut (impl Read+Write)) -> EnclaveRaResult<Quote> {
         if report_data.len() > 64 {
             return Err(EnclaveRaError::ReportDataLongerThan64Bytes);
         }

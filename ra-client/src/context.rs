@@ -12,6 +12,7 @@ use crate::ClientRaResult;
 pub struct ClientRaContext {
     pub aesm_client: AesmClient,
     pub quote_info: QuoteInfo,
+    pub g_a: Option<DHKEPublicKey>,
 }
 
 impl ClientRaContext {
@@ -21,6 +22,7 @@ impl ClientRaContext {
         Ok(Self {
             aesm_client, 
             quote_info,
+            g_a: None,
         })
     }
 
@@ -89,10 +91,11 @@ impl ClientRaContext {
         let mut g_a: DHKEPublicKey = [0u8; size_of::<DHKEPublicKey>()];
         enclave_stream.read_exact(&mut g_a[..]).unwrap();
         let gid: Gid = self.quote_info.gid().try_into().unwrap();
+        self.g_a = Some(g_a.clone());
         RaMsg1 { gid, g_a }
     }
 
-    pub fn process_msg_2(&self, msg2: RaMsg2, 
+    pub fn process_msg_2(&mut self, msg2: RaMsg2, 
                          mut enclave_stream: &mut (impl Read+Write)) 
         -> ClientRaResult<RaMsg3> {
             bincode::serialize_into(&mut enclave_stream, &msg2).unwrap();
@@ -114,6 +117,7 @@ impl ClientRaContext {
             enclave_stream.read_exact(&mut mac).unwrap();
 
             Ok(RaMsg3{
+                g_a: self.g_a.take().unwrap(),
                 mac,
                 ps_sec_prop: None, 
                 quote

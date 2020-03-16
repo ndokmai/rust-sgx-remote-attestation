@@ -5,7 +5,7 @@ use std::convert::TryInto;
 use byteorder::{ReadBytesExt, LittleEndian};
 use sgxs::sigstruct;
 use sgx_crypto::random::RandomState;
-use sgx_crypto::key_exchange::OneWayAuthenticatedDHKE;
+use sgx_crypto::key_exchange::{OneWayAuthenticatedDHKE, DHKEPublicKey};
 use sgx_crypto::cmac::{Cmac, MacTag};
 use sgx_crypto::signature::SigningKey;
 use sgx_crypto::certificate::X509Cert;
@@ -24,6 +24,7 @@ pub struct SpRaContext {
     sp_private_key: SigningKey, 
     rng: RandomState,
     key_exchange: Option<OneWayAuthenticatedDHKE>,
+    g_a: Option<DHKEPublicKey>,
     verification_digest: Option<Sha256Digest>,
     smk: Option<Cmac>,
     sk_mk: Option<(MacTag, MacTag)>,
@@ -63,6 +64,7 @@ impl SpRaContext {
             sp_private_key,
             rng,
             key_exchange: Some(key_exchange),
+            g_a: None,
             verification_digest: None, 
             smk: None,
             sk_mk: None,
@@ -156,6 +158,7 @@ impl SpRaContext {
         self.smk = Some(smk);
         self.sk_mk = Some((sk, mk));
         self.verification_digest = Some(verification_digest);
+        self.g_a = Some(msg1.g_a.clone());
 
         let spid: Spid = hex::decode(&self.config.spid).unwrap().as_slice()
             .try_into().unwrap();
@@ -174,6 +177,9 @@ impl SpRaContext {
     pub async fn process_msg_3(&mut self, msg3: RaMsg3) 
         -> SpRaResult<(RaMsg4, Option<String>)> {
             // Integrity check
+            if &msg3.g_a[..] != &self.g_a.as_ref().unwrap()[..] {
+                return Err(SpRaError::IntegrityError);
+            }
             if !msg3.verify_mac(self.smk.as_ref().unwrap()).is_ok() {
                 return Err(SpRaError::IntegrityError);
             }

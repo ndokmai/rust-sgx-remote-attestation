@@ -77,6 +77,7 @@ impl EnclaveRaContext {
 
             // Send MAC for msg3 to client
             let msg3 = RaMsg3::new(&smk, 
+                                   g_a,
                                    None, 
                                    quote);
             client_stream.write_all(&msg3.mac).unwrap();

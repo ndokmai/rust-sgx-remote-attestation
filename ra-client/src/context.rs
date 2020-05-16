@@ -88,8 +88,7 @@ impl ClientRaContext {
 
     pub fn get_msg_1(&mut self, 
                      enclave_stream: &mut (impl Read+Write)) -> RaMsg1 {
-        let mut g_a: DHKEPublicKey = [0u8; size_of::<DHKEPublicKey>()];
-        enclave_stream.read_exact(&mut g_a[..]).unwrap();
+        let g_a: DHKEPublicKey = bincode::deserialize_from(enclave_stream).unwrap();
         let gid: Gid = self.quote_info.gid().try_into().unwrap();
         self.g_a = Some(g_a.clone());
         RaMsg1 { gid, g_a }

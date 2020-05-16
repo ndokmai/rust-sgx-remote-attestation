@@ -9,6 +9,3 @@ bincode = "1.2.1"
 sgx-isa = { version = "0.3.1", features = ["sgxstd"] }
 sgx-crypto = { path = "../sgx-crypto" }
 ra-common = { path = "../ra-common" }
-
-[patch.crates-io]
-ring = { git = "https://github.com/akash-fortanix/ring.git", rev = "5b5b3792fc409288039937ca422ebdd8426de8a8" }

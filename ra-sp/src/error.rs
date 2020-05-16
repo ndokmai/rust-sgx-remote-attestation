@@ -1,10 +1,8 @@
 
 #[derive(Debug)]
 pub enum SpRaError {
+    Crypto(sgx_crypto::error::CryptoError),
     IO(std::io::Error),
-    KeyExchange(sgx_crypto::key_exchange::KeError),
-    Signature(sgx_crypto::signature::SigError),
-    Certificate(sgx_crypto::certificate::CertError),
     IAS(IasError),
     Serialization(std::boxed::Box<bincode::ErrorKind>),
     IntegrityError,
@@ -18,16 +16,8 @@ impl std::convert::From<std::io::Error> for SpRaError {
     fn from(e: std::io::Error) -> Self { Self::IO(e) }
 }
 
-impl std::convert::From<sgx_crypto::key_exchange::KeError> for SpRaError {
-    fn from(e: sgx_crypto::key_exchange::KeError) -> Self { Self::KeyExchange(e) }
-}
-
-impl std::convert::From<sgx_crypto::signature::SigError> for SpRaError {
-    fn from(e: sgx_crypto::signature::SigError) -> Self { Self::Signature(e) }
-}
-
-impl std::convert::From<sgx_crypto::certificate::CertError> for SpRaError {
-    fn from(e: sgx_crypto::certificate::CertError) -> Self { Self::Certificate(e) }
+impl std::convert::From<sgx_crypto::error::CryptoError> for SpRaError {
+    fn from(e: sgx_crypto::error::CryptoError) -> Self { Self::Crypto(e) }
 }
 
 impl std::convert::From<IasError> for SpRaError {

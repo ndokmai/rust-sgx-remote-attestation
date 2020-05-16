@@ -1,16 +1,47 @@
-use ring::rand;
+pub use mbedtls::rng::EntropyCallback;
 
-pub struct RandomState {
-    inner: rand::SystemRandom,
+#[cfg(not(target_env = "sgx"))]
+pub fn entropy_new<'a>() -> mbedtls::rng::OsEntropy<'a> {
+    mbedtls::rng::OsEntropy::new()
 }
 
-impl RandomState {
+#[cfg(target_env = "sgx")]
+pub struct Rng {
+    pub inner: mbedtls::rng::Rdrand,
+}
+
+#[cfg(target_env = "sgx")]
+impl Rng {
     pub fn new() -> Self {
-        Self { inner: rand::SystemRandom::new() }
-    }
-
-    pub fn inner(&self) -> &rand::SystemRandom {
-        &self.inner
-    }
+        Self { inner: mbedtls::rng::Rdrand }
+    } 
 }
 
+#[cfg(not(target_env = "sgx"))]
+pub struct Rng<'a> {
+    pub inner: mbedtls::rng::CtrDrbg<'a>,
+}
+
+#[cfg(not(target_env = "sgx"))]
+impl<'a> Rng<'a> {
+    pub fn new(source: &'a mut impl EntropyCallback) -> super::Result<Self> {
+        Ok(Self { inner: mbedtls::rng::CtrDrbg::new(source, None)? })
+    } 
+}
+
+
+//use ring::rand;
+
+//pub struct RandomState {
+    //inner: rand::SystemRandom,
+//}
+
+//impl RandomState {
+    //pub fn new() -> Self {
+        //Self { inner: rand::SystemRandom::new() }
+    //}
+
+    //pub fn inner(&self) -> &rand::SystemRandom {
+        //&self.inner
+    //}
+//}

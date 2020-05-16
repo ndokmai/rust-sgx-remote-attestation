@@ -51,7 +51,7 @@ pub fn verify_report(report: &Report) -> Result<(), LocalAttestationError>{
     let mut mac_data = &report_data[0..Report::UNPADDED_SIZE-48];
 
     // Compute and verify the mac on the data.
-    let mac = Cmac::new(&key);
+    let mut mac = Cmac::new(&key)?;
     mac.verify(&mut mac_data, &report.mac)
         .map_err(|_| LocalAttestationError::IntegrityError)
 }

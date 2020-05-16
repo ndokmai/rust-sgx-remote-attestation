@@ -68,7 +68,7 @@ impl AttestationResponse {
                             ((([A-Za-z0-9+/]{4})*\
                               ([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)*\\n)+)\
                             (-----END .*-----)").unwrap();
-        let (certificate, ca_certificate) =  {
+        let (mut certificate, mut ca_certificate) =  {
             let c = headers.get("x-iasreport-signing-certificate")
                 .unwrap().to_str().unwrap();
             let c = percent_encoding::percent_decode_str(c).decode_utf8().unwrap();
@@ -76,10 +76,13 @@ impl AttestationResponse {
                 .map(|m| m.as_str().to_owned())
                 .collect::<Vec<String>>();
             let mut c_iter = c.into_iter();
-            let certificate = c_iter.next().unwrap();
-            let certificate = X509Cert::new_from_pem(&certificate).unwrap();
-            let ca_certificate = c_iter.next().unwrap();
-            let ca_certificate = X509Cert::new_from_pem(&ca_certificate).unwrap();
+            let mut certificate = c_iter.next().unwrap();
+            certificate.push('\0');
+            let certificate = X509Cert::new_from_pem(certificate.as_bytes()).unwrap();
+            let mut ca_certificate = c_iter.next().unwrap();
+            ca_certificate.push('\0');
+            let ca_certificate = 
+                X509Cert::new_from_pem(ca_certificate.as_bytes()).unwrap();
             (certificate, ca_certificate)
         };
 
@@ -89,14 +92,13 @@ impl AttestationResponse {
         }
 
         // Check if the certificate is signed by root CA
-        certificate.verify_cert(&ca_certificate)
+        certificate.verify_this_certificate(&mut ca_certificate)
             .map_err(|_| AttestationError::InvalidIASCertificate)?;
 
         // Check if the signature is correct
-        let verification_key = certificate.get_verification_key();
         let signature = base64::decode(
             headers.get("x-iasreport-signature").unwrap().to_str().unwrap()).unwrap();
-        verification_key.verify(body, &signature[..])
+        certificate.verify_signature(body, &signature[..])
             .map_err(|_| AttestationError::BadSignature)?;
         Ok(())
     }

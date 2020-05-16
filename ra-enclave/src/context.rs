@@ -1,7 +1,7 @@
 use std::io::{Read, Write};
 use std::mem::size_of;
 use sgx_isa::{Targetinfo, Report};
-use sgx_crypto::random::RandomState;
+use sgx_crypto::random::Rng;
 use sgx_crypto::key_exchange::OneWayAuthenticatedDHKE;
 use sgx_crypto::signature::VerificationKey;
 use sgx_crypto::cmac::{Cmac, MacTag};
@@ -19,10 +19,10 @@ pub struct EnclaveRaContext {
 
 impl EnclaveRaContext {
     pub fn init(sp_vkey_pem: &str) -> EnclaveRaResult<Self>  {
-        let rng = RandomState::new();
-        let key_exchange = OneWayAuthenticatedDHKE::generate_keypair(&rng)?;
+        let mut rng = Rng::new();
+        let key_exchange = OneWayAuthenticatedDHKE::generate_keypair(&mut rng)?;
         Ok(Self {
-            sp_vkey: VerificationKey::new_from_pem(sp_vkey_pem)?,
+            sp_vkey: VerificationKey::new(sp_vkey_pem.as_bytes())?,
             key_exchange: Some(key_exchange),
         })
     }
@@ -47,39 +47,41 @@ impl EnclaveRaContext {
     pub fn process_msg_2(&mut self, 
                          mut client_stream: &mut (impl Read+Write)) 
         -> EnclaveRaResult<(MacTag, MacTag)> {
-            let g_a = self.key_exchange.as_ref().unwrap().get_public_key().to_owned();
-            client_stream.write_all(&g_a[..]).unwrap();
+            let g_a = self.key_exchange.as_ref().unwrap().get_public_key()?;
+            bincode::serialize_into(&mut client_stream, &g_a).unwrap();
 
             let msg2: RaMsg2 = bincode::deserialize_from(&mut client_stream).unwrap();
 
             // Verify and derive KDK and then other secret keys 
+            let mut rng = Rng::new();
             let kdk = self.key_exchange.take().unwrap()
                 .verify_and_derive(&msg2.g_b,
                                    &msg2.sign_gb_ga,
-                                   &self.sp_vkey)
+                                   &mut self.sp_vkey,
+                                   &mut rng)
                 .unwrap();
-            let kdk_cmac = Cmac::new(&kdk);
-            let (smk, sk, mk, vk) = derive_secret_keys(&kdk_cmac);
-            let smk = Cmac::new(&smk);
+            let mut kdk_cmac = Cmac::new(&kdk)?;
+            let (smk, sk, mk, vk) = derive_secret_keys(&mut kdk_cmac)?;
+            let mut smk = Cmac::new(&smk)?;
 
             // Verify MAC tag of MSG2
-            msg2.verify_mac(&smk).map_err(|_| EnclaveRaError::IntegrityError)?;
+            msg2.verify_mac(&mut smk)?;
 
             // Obtain SHA-256(g_a || g_b || vk) 
             let mut verification_msg = Vec::new();
             verification_msg.write_all(g_a.as_ref()).unwrap();
             verification_msg.write_all(&msg2.g_b).unwrap();
             verification_msg.write_all(&vk).unwrap();
-            let verification_digest = sha256(&verification_msg[..]);
+            let verification_digest = sha256(&verification_msg[..])?;
 
             // Obtain Quote
             let quote = Self::get_quote(&verification_digest[..], client_stream)?;
 
             // Send MAC for msg3 to client
-            let msg3 = RaMsg3::new(&smk, 
+            let msg3 = RaMsg3::new(&mut smk, 
                                    g_a,
                                    None, 
-                                   quote);
+                                   quote)?;
             client_stream.write_all(&msg3.mac).unwrap();
 
             Ok((sk, mk))

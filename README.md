@@ -6,7 +6,12 @@ This project is highly experimental at the current stage, so I would advise agin
 - [Fortanix EDP](https://edp.fortanix.com/docs/installation/guide/)
 - [Clang 3.8 or older](https://releases.llvm.org/download.html) for building [rust-mbedtls](https://github.com/fortanix/rust-mbedtls)
 
-Note: If your system has a newer version of Clang installed, try pointing clang-sys to a different version of Clang by exporting [these environment variables](https://github.com/KyleMayes/clang-sys#environment-variables), including `LD_LIBRARY_PATH`, before building.
+Note: If your system has a newer version of Clang installed, try pointing clang-sys to a different version of Clang by exporting [these environment variables](https://github.com/KyleMayes/clang-sys#environment-variables), including `LD_LIBRARY_PATH`, before building. For example,
+```bash
+export LLVM_CONFIG_PATH=/real/path/to/clang/bin/llvm-config
+export LD_LIBRARY_PATH=/real/path/to/clang/lib
+```
+before building and running (see below).
 ## How to Build and Run Example
 1. Sign up for a Development Access account at https://api.portal.trustedservices.intel.com/EPID-attestation. Make sure that the Name Base Mode is Linkable Quote (this is all the SDK can support for now). Take note of "SPID", "Primary key", and "Secondary key".
 2. Modify the following fields in [settings.json](ra-sp/examples/data/settings.json) using the information from the previous step:

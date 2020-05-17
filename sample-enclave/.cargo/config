@@ -1,3 +1,0 @@
-[build]
-target = "x86_64-fortanix-unknown-sgx"
-# rustflags = ["-Ctarget-feature=+aes,+pclmul"]

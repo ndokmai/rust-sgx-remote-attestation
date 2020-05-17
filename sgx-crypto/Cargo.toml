@@ -16,4 +16,4 @@ byteorder = "1.2.1"
 mbedtls = { version = "0.5.4", default-features = false, features = ["sgx"] }
 
 [target.'cfg(not(target_env = "sgx"))'.dependencies]
-mbedtls = { version = "0.5.4"}
+mbedtls = "0.5.4"

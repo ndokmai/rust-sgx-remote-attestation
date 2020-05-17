@@ -9,7 +9,7 @@
         "GROUP_OUT_OF_DATE",
         "CONFIGURATION_NEEDED"
     ],
-    "sp_private_key_pem_path": "data/sp-keys/private_key.pem",
-    "ias_root_cert_pem_path": "data/Intel_SGX_Attestation_RootCA.pem",
-    "sigstruct_path": "../sample-enclave/target/x86_64-fortanix-unknown-sgx/debug/sample-enclave.sig"
+    "sp_private_key_pem_path": "examples/data/sp-keys/private_key.pem",
+    "ias_root_cert_pem_path": "examples/data/Intel_SGX_Attestation_RootCA.pem",
+    "sigstruct_path": "../ra-enclave/target/x86_64-fortanix-unknown-sgx/debug/examples/tls-enclave.sig"
 }

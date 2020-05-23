@@ -15,5 +15,5 @@ sgxs-sign --key $KEY $TARGET_SGX $TARGET_SIG -d --xfrm 7/0 --isvprodid 0 --isvsv
 (cd ra-client && cargo build -Zfeatures=itarget --example tls-client --features verbose)
 
 # Build SP
-(cd ra-sp && cargo build -Zfeatures=itarget --example tls-sp --features "verbose example")
+(cd ra-sp && cargo build -Zfeatures=itarget --example tls-sp --features "verbose")
 

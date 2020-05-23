@@ -13,7 +13,7 @@ base64 = "0.11"
 byteorder = "1.2.1"
 
 [target.'cfg(target_env = "sgx")'.dependencies]
-mbedtls = { version = "0.5.4", default-features = false, features = ["sgx"] }
+mbedtls = { git = "https://github.com/ndokmai/rust-mbedtls.git", default-features = false, features = ["sgx"] }
 
 [target.'cfg(not(target_env = "sgx"))'.dependencies]
-mbedtls = "0.5.4"
+mbedtls = { git = "https://github.com/ndokmai/rust-mbedtls.git" } 

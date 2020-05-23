@@ -6,7 +6,6 @@ edition = "2018"
 
 [features]
 verbose = []
-example = ["mbedtls"]
 
 [dependencies]
 bincode = "1.2.1"
@@ -25,9 +24,7 @@ sgxs = "0.7.2"
 sgx-isa = "0.3.1"
 sgx-crypto = { path = "../sgx-crypto" }
 ra-common = { path = "../ra-common" }
-mbedtls = { version = "0.5.4", optional = true }
 
 [[example]]
 name = "tls-sp"
 test = false
-required-features = ["example"]

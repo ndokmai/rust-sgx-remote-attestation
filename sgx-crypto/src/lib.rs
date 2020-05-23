@@ -5,7 +5,6 @@ pub mod digest;
 pub mod key_exchange;
 pub mod signature;
 pub mod certificate;
-//pub mod secure_channel;
-//mod pem_parser;
+pub mod tls_psk; 
 
 pub type Result<T> = std::result::Result<T, error::CryptoError>;

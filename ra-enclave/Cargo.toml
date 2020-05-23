@@ -5,7 +5,7 @@ authors = ["Natnatee Dokmai <ndokmai@indiana.edu>"]
 edition = "2018"
 
 [features]
-example = ["byteorder", "mbedtls"]
+example = ["byteorder"]
 
 [dependencies]
 bincode = "1.2.1"
@@ -13,7 +13,6 @@ sgx-isa = { version = "0.3.1", features = ["sgxstd"] }
 sgx-crypto = { path = "../sgx-crypto" }
 ra-common = { path = "../ra-common" }
 byteorder = { version = "1.3.2", optional = true }
-mbedtls = { version = "0.5.4", default-features = false, features = ["sgx"], optional = true}
 
 [[example]]
 name = "tls-enclave"

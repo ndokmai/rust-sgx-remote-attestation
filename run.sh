@@ -9,4 +9,4 @@ ftxsgx-runner --signature coresident $TARGET &
 (cd ra-client && cargo run -Zfeatures=itarget --example tls-client --features verbose) &
 
 # Run SP
-(cd ra-sp && cargo run -Zfeatures=itarget --example tls-sp --features "verbose example")
+(cd ra-sp && cargo run -Zfeatures=itarget --example tls-sp --features "verbose")

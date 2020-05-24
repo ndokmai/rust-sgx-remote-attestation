@@ -13,8 +13,10 @@ pub struct Rng {
 #[cfg(target_env = "sgx")]
 impl Rng {
     pub fn new() -> Self {
-        Self { inner: mbedtls::rng::Rdrand }
-    } 
+        Self {
+            inner: mbedtls::rng::Rdrand,
+        }
+    }
 }
 
 #[cfg(not(target_env = "sgx"))]
@@ -25,6 +27,8 @@ pub struct Rng<'a> {
 #[cfg(not(target_env = "sgx"))]
 impl<'a> Rng<'a> {
     pub fn new(source: &'a mut impl EntropyCallback) -> super::Result<Self> {
-        Ok(Self { inner: mbedtls::rng::CtrDrbg::new(source, None)? })
-    } 
+        Ok(Self {
+            inner: mbedtls::rng::CtrDrbg::new(source, None)?,
+        })
+    }
 }

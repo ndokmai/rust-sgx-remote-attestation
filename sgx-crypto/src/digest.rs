@@ -1,4 +1,4 @@
-use mbedtls::hash; 
+use mbedtls::hash;
 
 const SHA256DIGEST_LEN: usize = 32;
 pub const SHA256_TYPE: hash::Type = hash::Type::Sha256;

@@ -1,20 +1,20 @@
-use std::io::Write;
-use std::mem::size_of;
-use serde::{Serialize, Deserialize};
+use byteorder::{LittleEndian, WriteBytesExt};
+use serde::{Deserialize, Serialize};
 use serde_big_array::big_array;
-use byteorder::{WriteBytesExt, LittleEndian};
-use sgx_crypto::signature::Signature;
-use sgx_crypto::key_exchange::DHKEPublicKey;
 use sgx_crypto::cmac::{Cmac, MacTag};
 use sgx_crypto::error::CryptoError;
+use sgx_crypto::key_exchange::DHKEPublicKey;
+use sgx_crypto::signature::Signature;
+use std::io::Write;
+use std::mem::size_of;
 
 pub type Gid = [u8; 4];
 pub type Spid = [u8; 16];
 pub type PsSecPropDesc = [u8; 256];
 pub type Quote = [u8; 1116]; // 436 + quote.signature_len for version 2
 
-big_array! { 
-    BigArray; 
+big_array! {
+    BigArray;
     +size_of::<Quote>(),
 }
 
@@ -23,11 +23,10 @@ pub struct RaMsg0 {
     pub exgid: u32,
 }
 
-
 #[derive(Serialize, Deserialize)]
 pub struct RaMsg1 {
     pub gid: Gid,
-    pub g_a: DHKEPublicKey 
+    pub g_a: DHKEPublicKey,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -35,18 +34,20 @@ pub struct RaMsg2 {
     pub g_b: DHKEPublicKey,
     pub spid: Spid,
     pub quote_type: u16, /* unlinkable Quote(0) or linkable Quote(1) */
-    pub sign_gb_ga: Signature, 
-    pub mac: MacTag, 
+    pub sign_gb_ga: Signature,
+    pub mac: MacTag,
     pub sig_rl: Option<Vec<u8>>,
 }
 
 impl RaMsg2 {
-    pub fn new(smk: &mut Cmac, 
-               g_b: DHKEPublicKey, 
-               spid: Spid, 
-               quote_type: u16,
-               sign_gb_ga: Signature, 
-               sig_rl: Option<Vec<u8>>) -> Result<Self, CryptoError> {
+    pub fn new(
+        smk: &mut Cmac,
+        g_b: DHKEPublicKey,
+        spid: Spid,
+        quote_type: u16,
+        sign_gb_ga: Signature,
+        sig_rl: Option<Vec<u8>>,
+    ) -> Result<Self, CryptoError> {
         let mut msg2 = Self {
             g_b,
             spid,
@@ -60,7 +61,7 @@ impl RaMsg2 {
         Ok(msg2)
     }
 
-    pub fn verify_mac(&self, smk: &mut Cmac) -> Result<(), CryptoError>{
+    pub fn verify_mac(&self, smk: &mut Cmac) -> Result<(), CryptoError> {
         let a = self.get_a();
         smk.verify(&a[..], &self.mac)
     }
@@ -91,11 +92,13 @@ pub struct RaMsg3 {
 }
 
 impl RaMsg3 {
-    pub fn new(smk: &mut Cmac,
-               g_a: DHKEPublicKey, 
-               ps_sec_prop: Option<PsSecPropDesc>,
-               quote: Quote) -> Result<Self, CryptoError> {
-        let ps_sec_prop = ps_sec_prop.map(|v| PsSecPropDescInternal{ inner: v });
+    pub fn new(
+        smk: &mut Cmac,
+        g_a: DHKEPublicKey,
+        ps_sec_prop: Option<PsSecPropDesc>,
+        quote: Quote,
+    ) -> Result<Self, CryptoError> {
+        let ps_sec_prop = ps_sec_prop.map(|v| PsSecPropDescInternal { inner: v });
         let mut msg3 = Self {
             mac: [0u8; size_of::<MacTag>()],
             g_a,
@@ -116,7 +119,8 @@ impl RaMsg3 {
         let mut m = Vec::new();
         m.write_all(&self.g_a[..]).unwrap();
         if self.ps_sec_prop.is_some() {
-            m.write_all(&self.ps_sec_prop.as_ref().unwrap().inner[..]).unwrap();
+            m.write_all(&self.ps_sec_prop.as_ref().unwrap().inner[..])
+                .unwrap();
         }
         m.write_all(&self.quote[..]).unwrap();
         m

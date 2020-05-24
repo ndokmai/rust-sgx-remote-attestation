@@ -9,7 +9,9 @@ pub enum EnclaveRaError {
 }
 
 impl std::convert::From<sgx_crypto::error::CryptoError> for EnclaveRaError {
-    fn from(e: sgx_crypto::error::CryptoError) -> Self { Self::Crypto(e) }
+    fn from(e: sgx_crypto::error::CryptoError) -> Self {
+        Self::Crypto(e)
+    }
 }
 
 #[derive(Debug)]
@@ -20,6 +22,7 @@ pub enum LocalAttestationError {
 }
 
 impl std::convert::From<sgx_crypto::error::CryptoError> for LocalAttestationError {
-    fn from(e: sgx_crypto::error::CryptoError) -> Self { Self::Crypto(e) }
+    fn from(e: sgx_crypto::error::CryptoError) -> Self {
+        Self::Crypto(e)
+    }
 }
-

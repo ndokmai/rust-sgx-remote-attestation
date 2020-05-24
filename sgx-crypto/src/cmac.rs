@@ -6,7 +6,7 @@ pub type MacTag = [u8; MAC_LEN];
 /// 128-bit AES-CMAC
 pub struct Cmac {
     inner: Cipher,
-    key: [u8; MAC_LEN], 
+    key: [u8; MAC_LEN],
 }
 
 impl Cmac {
@@ -14,7 +14,7 @@ impl Cmac {
         let mut _key = [0u8; MAC_LEN];
         _key.as_mut().clone_from_slice(key);
         Ok(Self {
-            inner: Cipher::setup(CipherId::Aes, CipherMode::ECB, (MAC_LEN*8) as u32)?,
+            inner: Cipher::setup(CipherId::Aes, CipherMode::ECB, (MAC_LEN * 8) as u32)?,
             key: _key,
         })
     }
@@ -31,5 +31,5 @@ impl Cmac {
             true => Ok(()),
             false => Err(super::error::CryptoError::CmacVerificationError),
         }
-    } 
+    }
 }

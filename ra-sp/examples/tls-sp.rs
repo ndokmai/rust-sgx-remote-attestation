@@ -1,10 +1,10 @@
-use std::io::Read;
-use std::time::Duration;
-use byteorder::{ReadBytesExt, NetworkEndian};
-use ra_sp::{SpRaContext, SpConfig};
+use byteorder::{NetworkEndian, ReadBytesExt};
 use ra_common::tcp::{tcp_accept, tcp_connect};
+use ra_sp::{SpConfig, SpRaContext};
 use sgx_crypto::random::{entropy_new, Rng};
 use sgx_crypto::tls_psk::client;
+use std::io::Read;
+use std::time::Duration;
 
 fn parse_config_file(path: &str) -> SpConfig {
     serde_json::from_reader(std::fs::File::open(path).unwrap()).unwrap()
@@ -12,8 +12,7 @@ fn parse_config_file(path: &str) -> SpConfig {
 
 fn main() {
     let client_port = 1234;
-    let mut client_stream = tcp_accept(client_port)
-        .expect("SP: Client connection failed");
+    let mut client_stream = tcp_accept(client_port).expect("SP: Client connection failed");
     eprintln!("SP: connected to client.");
     let config = parse_config_file("examples/data/settings.json");
     let mut entropy = entropy_new();
@@ -24,10 +23,10 @@ fn main() {
     let enclave_port = 1235;
     let localhost = "localhost";
     let timeout = Duration::from_secs(5);
-    let mut enclave_stream = tcp_connect(localhost, enclave_port, timeout)
-        .expect("SP: Enclave connection failed");
+    let mut enclave_stream =
+        tcp_connect(localhost, enclave_port, timeout).expect("SP: Enclave connection failed");
 
-    // establish TLS-PSK with enclave; SP is the client 
+    // establish TLS-PSK with enclave; SP is the client
     let mut rng = Rng::new(&mut entropy).unwrap();
     let config = client::config(&mut rng, &result.master_key).unwrap();
     let mut ctx = client::context(&config).unwrap();

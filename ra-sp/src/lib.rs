@@ -1,12 +1,12 @@
-mod ias;
 mod attestation_response;
-mod error;
-mod context;
 mod config;
+mod context;
+mod error;
+mod ias;
 
-pub use crate::error::*;
-pub use crate::context::*;
 pub use crate::config::*;
+pub use crate::context::*;
+pub use crate::error::*;
 
 pub type SpRaResult<T> = Result<T, crate::error::SpRaError>;
 
@@ -17,4 +17,3 @@ pub struct AttestationResult {
     pub signing_key: MacTag,
     pub master_key: MacTag,
 }
-

@@ -96,6 +96,7 @@ impl<'a> SpRaContext<'a> {
         }
 
         bincode::serialize_into(&mut client_stream, &msg2)?;
+        client_stream.flush()?;
         if cfg!(feature = "verbose") {
             eprintln!("MSG2 sent");
         }
@@ -111,6 +112,7 @@ impl<'a> SpRaContext<'a> {
         }
 
         bincode::serialize_into(&mut client_stream, &msg4)?;
+        client_stream.flush()?;
         if cfg!(feature = "verbose") {
             eprintln!("MSG4 sent");
         }
@@ -226,8 +228,11 @@ impl<'a> SpRaContext<'a> {
         let attribute_flags = &self.sigstruct.attributes.flags;
         if cfg!(not(debug_assertions)) {
             if (&sgx_isa::AttributesFlags::DEBUG).intersects(*attribute_flags) {
-                return Err(SpRaError::EnclaveInDebugMode);
+                //return Err(SpRaError::EnclaveInDebugMode);
+                eprintln!("WARNING: Enclave is running in debug mode. Do not trust this enclave in production.")
             }
+        } else {
+            eprintln!("WARNING: Enclave is running in debug mode. Do not trust this enclave in production.")
         }
 
         // Decide whether to trust enclave

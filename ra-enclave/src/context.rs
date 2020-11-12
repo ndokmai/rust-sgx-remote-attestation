@@ -54,6 +54,7 @@ impl EnclaveRaContext {
     ) -> EnclaveRaResult<(MacTag, MacTag)> {
         let g_a = self.key_exchange.as_ref().unwrap().get_public_key()?;
         bincode::serialize_into(&mut client_stream, &g_a).unwrap();
+        client_stream.flush().unwrap();
 
         let msg2: RaMsg2 = bincode::deserialize_from(&mut client_stream).unwrap();
 
@@ -85,6 +86,7 @@ impl EnclaveRaContext {
         // Send MAC for msg3 to client
         let msg3 = RaMsg3::new(&mut smk, g_a, None, quote)?;
         client_stream.write_all(&msg3.mac).unwrap();
+        client_stream.flush().unwrap();
 
         Ok((sk, mk))
     }

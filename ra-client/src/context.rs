@@ -37,6 +37,7 @@ impl ClientRaContext {
         }
 
         bincode::serialize_into(&mut sp_stream, &msg0)?;
+        sp_stream.flush()?;
         if cfg!(feature = "verbose") {
             eprintln!("MSG0 sent");
         }
@@ -47,6 +48,7 @@ impl ClientRaContext {
         }
 
         bincode::serialize_into(&mut sp_stream, &msg1)?;
+        sp_stream.flush()?;
         if cfg!(feature = "verbose") {
             eprintln!("MSG1 sent");
         }
@@ -62,6 +64,7 @@ impl ClientRaContext {
         }
 
         bincode::serialize_into(&mut sp_stream, &msg3)?;
+        sp_stream.flush()?;
         if cfg!(feature = "verbose") {
             eprintln!("MSG3 sent");
         }
@@ -72,6 +75,7 @@ impl ClientRaContext {
         }
 
         bincode::serialize_into(&mut enclave_stream, &msg4).unwrap();
+        sp_stream.flush()?;
 
         if !msg4.is_enclave_trusted {
             return Err(ClientRaError::EnclaveNotTrusted);
@@ -106,6 +110,7 @@ impl ClientRaContext {
         mut enclave_stream: &mut (impl Read + Write),
     ) -> ClientRaResult<RaMsg3> {
         bincode::serialize_into(&mut enclave_stream, &msg2).unwrap();
+        enclave_stream.flush().unwrap();
 
         let sig_rl = match msg2.sig_rl {
             Some(sig_rl) => sig_rl.to_owned(),
@@ -139,6 +144,7 @@ impl ClientRaContext {
 
         // Get report for local attestation with QE from enclave
         enclave_stream.write_all(quote_info.target_info()).unwrap();
+        enclave_stream.flush().unwrap();
         let mut report = vec![0u8; Report::UNPADDED_SIZE];
         enclave_stream.read_exact(&mut report[..]).unwrap();
 
@@ -147,6 +153,7 @@ impl ClientRaContext {
         let _quote = aesm_client.get_quote(report, spid, sig_rl, QuoteType::Linkable, nonce)?;
         enclave_stream.write_all(_quote.quote()).unwrap();
         enclave_stream.write_all(_quote.qe_report()).unwrap();
+        enclave_stream.flush().unwrap();
 
         let mut quote = [0u8; size_of::<Quote>()];
         quote.copy_from_slice(_quote.quote());

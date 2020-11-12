@@ -19,7 +19,7 @@ before building and running (see below).
   - "spid": "\<SPID\>"
   - "primary_subscription_key": "\<Primary Key\>"
   - "secondary_subscription_key": "\<Secondary key\>"
-3. Download IAS's root certificate from [this link](https://certificates.trustedservices.intel.com/Intel_SGX_Attestation_RootCA.pem) and save the cerficate file in directory [sample-sp/data](ra-sp/examples/data). Make sure the file name is "Intel_SGX_Attestation_RootCA.pem".
+3. Download IAS's root certificate from [this link](https://certificates.trustedservices.intel.com/Intel_SGX_Attestation_RootCA.pem) and save the cerficate file in directory [ra-sp/examples/data/](ra-sp/examples/data). Make sure the file name is "Intel_SGX_Attestation_RootCA.pem".
 4. Run the script `build.sh` and `run.sh` consecutively from the main directory.
 
 If there are no error messages on the screen, then the remote attestation has run successfully.

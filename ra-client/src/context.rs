@@ -1,6 +1,6 @@
 use crate::error::ClientRaError;
 use crate::ClientRaResult;
-use aesm_client::{AesmClient, QuoteInfo};
+use aesm_client::{AesmClient, QuoteInfo, QuoteType};
 use ra_common::msg::{Gid, Quote, RaMsg0, RaMsg1, RaMsg2, RaMsg3, RaMsg4};
 use sgx_crypto::cmac::MacTag;
 use sgx_crypto::key_exchange::DHKEPublicKey;
@@ -143,7 +143,8 @@ impl ClientRaContext {
         enclave_stream.read_exact(&mut report[..]).unwrap();
 
         // Get a quote and QE report from QE and send them to enclave
-        let _quote = aesm_client.get_quote(&quote_info, report, spid, sig_rl)?;
+        let nonce = vec![0u8; 16]; // TODO change this
+        let _quote = aesm_client.get_quote(report, spid, sig_rl, QuoteType::Linkable, nonce)?;
         enclave_stream.write_all(_quote.quote()).unwrap();
         enclave_stream.write_all(_quote.qe_report()).unwrap();
 

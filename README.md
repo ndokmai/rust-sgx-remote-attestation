@@ -8,6 +8,7 @@ This project is highly experimental at the current stage, so I would advise agin
 
 Note: If your system has a newer version of Clang installed, try pointing clang-sys to a different version of Clang by exporting [these environment variables](https://github.com/KyleMayes/clang-sys#environment-variables), including `LD_LIBRARY_PATH`, before building. For example,
 ```bash
+export PATH=/real/path/to/clang/bin/:$PATH
 export LLVM_CONFIG_PATH=/real/path/to/clang/bin/llvm-config
 export LD_LIBRARY_PATH=/real/path/to/clang/lib
 ```

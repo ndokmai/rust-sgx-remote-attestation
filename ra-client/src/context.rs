@@ -109,8 +109,8 @@ impl ClientRaContext {
         msg2: RaMsg2,
         mut enclave_stream: &mut (impl Read + Write),
     ) -> ClientRaResult<RaMsg3> {
-        bincode::serialize_into(&mut enclave_stream, &msg2).unwrap();
-        enclave_stream.flush().unwrap();
+        bincode::serialize_into(&mut enclave_stream, &msg2)?;
+        enclave_stream.flush()?;
 
         let sig_rl = match msg2.sig_rl {
             Some(sig_rl) => sig_rl.to_owned(),
@@ -123,7 +123,7 @@ impl ClientRaContext {
 
         // Read MAC for msg3 from enclave
         let mut mac = [0u8; size_of::<MacTag>()];
-        enclave_stream.read_exact(&mut mac).unwrap();
+        enclave_stream.read_exact(&mut mac)?;
 
         Ok(RaMsg3 {
             g_a: self.g_a.take().unwrap(),
@@ -143,17 +143,17 @@ impl ClientRaContext {
         let quote_info = aesm_client.init_quote()?;
 
         // Get report for local attestation with QE from enclave
-        enclave_stream.write_all(quote_info.target_info()).unwrap();
-        enclave_stream.flush().unwrap();
+        enclave_stream.write_all(quote_info.target_info())?;
+        enclave_stream.flush()?;
         let mut report = vec![0u8; Report::UNPADDED_SIZE];
-        enclave_stream.read_exact(&mut report[..]).unwrap();
+        enclave_stream.read_exact(&mut report[..])?;
 
         // Get a quote and QE report from QE and send them to enclave
         let nonce = vec![0u8; 16]; // TODO change this
         let _quote = aesm_client.get_quote(report, spid, sig_rl, QuoteType::Linkable, nonce)?;
-        enclave_stream.write_all(_quote.quote()).unwrap();
-        enclave_stream.write_all(_quote.qe_report()).unwrap();
-        enclave_stream.flush().unwrap();
+        enclave_stream.write_all(_quote.quote())?;
+        enclave_stream.write_all(_quote.qe_report())?;
+        enclave_stream.flush()?;
 
         let mut quote = [0u8; size_of::<Quote>()];
         quote.copy_from_slice(_quote.quote());

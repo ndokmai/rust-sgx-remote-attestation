@@ -109,6 +109,7 @@ impl EnclaveRaContext {
         let target_info = Targetinfo::try_copy_from(&target_info).unwrap();
         let report = Report::for_target(&target_info, &_report_data);
         client_stream.write_all(report.as_ref()).unwrap();
+        client_stream.flush().unwrap();
 
         // Obtain quote and QE report from client
         let mut quote = [0u8; size_of::<Quote>()];

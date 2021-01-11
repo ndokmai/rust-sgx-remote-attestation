@@ -44,6 +44,9 @@ impl<'a> SpRaContext<'a> {
             eprintln!("=============================================");
         }
 
+        assert!(!config.spid.is_empty());
+        assert!(!config.primary_subscription_key.is_empty());
+
         // Preparing for binary search
         config.quote_trust_options.sort();
         config.pse_trust_options.as_mut().map(|v| v.sort());

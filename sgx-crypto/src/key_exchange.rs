@@ -26,7 +26,7 @@ impl DHKE {
         Ok(self.inner.ec_public()?.to_binary(&ecgroup, true)?)
     }
 
-    /// RNG is used to implement countermeasures against side-channel attacks. See https://tls.mbed.org/api/ecdh_8h.html#a423fee27a0c8603bba336cbfe6dadcaa
+    /// RNG is used to implement countermeasures against side-channel attacks. See <https://tls.mbed.org/api/ecdh_8h.html#a423fee27a0c8603bba336cbfe6dadcaa>
     pub fn derive_key(
         mut self,
         peer_public_key: &DHKEPublicKey,

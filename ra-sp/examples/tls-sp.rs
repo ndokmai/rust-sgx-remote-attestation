@@ -1,7 +1,6 @@
 use byteorder::{NetworkEndian, ReadBytesExt};
 use ra_common::tcp::{tcp_accept, tcp_connect};
 use ra_sp::{SpConfig, SpRaContext};
-use sgx_crypto::random::{entropy_new, Rng};
 use sgx_crypto::tls_psk::client;
 use std::io::Read;
 use std::time::Duration;
@@ -15,8 +14,7 @@ fn main() {
     let mut client_stream = tcp_accept(client_port).expect("SP: Client connection failed");
     eprintln!("SP: connected to client.");
     let config = parse_config_file("examples/data/settings.json");
-    let mut entropy = entropy_new();
-    let context = SpRaContext::init(config, &mut entropy).unwrap();
+    let context = SpRaContext::init(config).unwrap();
     let result = context.do_attestation(&mut client_stream).unwrap();
 
     // talk to enclave directly from now on
@@ -27,12 +25,8 @@ fn main() {
         tcp_connect(localhost, enclave_port, timeout).expect("SP: Enclave connection failed");
 
     // establish TLS-PSK with enclave; SP is the client
-    let mut rng = Rng::new(&mut entropy).unwrap();
-    let config = client::config(&mut rng, &result.master_key).unwrap();
-    let mut ctx = client::context(&config).unwrap();
-
-    // begin secure communication
-    let mut session = ctx.establish(&mut enclave_stream, None).unwrap();
+    let mut context = client::ClientTlsPskContext::new(result.master_key);
+    let mut session = context.establish(&mut enclave_stream, None).unwrap();
     let len = session.read_u32::<NetworkEndian>().unwrap() as usize;
     let mut msg = vec![0u8; len];
     session.read_exact(&mut msg[..]).unwrap();

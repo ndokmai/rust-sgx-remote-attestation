@@ -8,3 +8,4 @@ pub mod signature;
 pub mod tls_psk;
 
 pub type Result<T> = std::result::Result<T, error::CryptoError>;
+pub use mbedtls;

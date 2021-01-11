@@ -2,6 +2,7 @@ use serde::Deserialize;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct SpConfig {
+    pub debug: bool,
     pub linkable: bool,
     pub random_nonce: bool,
     pub use_platform_service: bool,

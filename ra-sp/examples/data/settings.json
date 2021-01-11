@@ -1,4 +1,5 @@
 {
+    "debug": true,
     "linkable": true,
     "random_nonce": false,
     "use_platform_service": false,
